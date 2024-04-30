@@ -1,6 +1,6 @@
-package main
+package receivers
 
-import "go-playground/auth"
+import "go-playground/receivers/auth"
 
 func main() {
 	a := auth.NewAPIAuth([]string{"key1", "key2"})

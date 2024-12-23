@@ -1,11 +1,9 @@
 go 1.23.4
 
 use (
-	./example/hello
 	./log_interface
 	./nopanic
 	./sliceexample
 	./syncmapex
-	./workspace
 	./wrap
 )

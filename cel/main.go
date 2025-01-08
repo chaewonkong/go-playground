@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 )
 
+// cel go로 age가 minAge 이상인지 판단
 func main() {
 	env, err := cel.NewEnv(
 		cel.Variable("age", cel.IntType),

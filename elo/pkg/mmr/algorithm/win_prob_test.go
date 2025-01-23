@@ -1,7 +1,7 @@
 package algorithm_test
 
 import (
-	"elo/pkg/algorithm"
+	"elo/pkg/mmr/algorithm"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

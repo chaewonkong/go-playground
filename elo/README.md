@@ -11,12 +11,12 @@ Elo Algorithm implementation in Go.
 - Streak K
 
 ### default K
-k = 60
+k = 20
 
 ### Streak K
 c = number of consequtive wins/loses
 
-k = $2^{c+1}$
+k += $2^{c+1}$
 
 ## Result
 | type | Result Value |
@@ -25,7 +25,7 @@ k = $2^{c+1}$
 | Draw | 0.5 |
 | Lose | 0 |
 
-## Exprected Result
+## Expected Result
 $E_a = \frac{1}{1 + 10^{\frac{R_b - R_a}{400}}}$
 
 $E_b = 1 - E_a$
@@ -36,6 +36,8 @@ $E_b = 1 - E_a$
 - $E_a + E_b$ should be always 1
 - Default Elo score is 1500
 
+## Elo Calculation
+$NewR_a = k * (Result_a - E_a)$
 
 ## Ref
 - [Wikipedia: Elo Rating System](https://en.wikipedia.org/wiki/Elo_rating_system)

@@ -1,9 +1,9 @@
 package algorithm_test
 
 import (
-	"elo/pkg/mmr/algorithm"
 	"testing"
 
+	"github.com/chaewonkong/go-playground/elo/pkg/mmr/algorithm"
 	"github.com/stretchr/testify/assert"
 )
 

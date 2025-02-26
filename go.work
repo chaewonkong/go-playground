@@ -5,6 +5,7 @@ use (
 	./elo
 	./err
 	./log_interface
+	./logger_comparison
 	./nopanic
 	./sliceexample
 	./syncmapex

@@ -9,5 +9,6 @@ use (
 	./nopanic
 	./sliceexample
 	./syncmapex
+	./viperenv
 	./wrap
 )

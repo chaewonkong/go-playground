@@ -26,6 +26,14 @@
             "mode": "auto",
             "program": "${workspaceFolder}/viperenv",
             "envFile": "${workspaceFolder}/viperenv/.env"
+        },
+        {
+            "name": "Run HTTP server",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/httpserver/cmd",
+            "envFile": "${workspaceFolder}/httpserver/.env"
         }
     ]
 }

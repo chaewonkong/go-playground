@@ -1,6 +1,6 @@
 module cel
 
-go 1.23.4
+go 1.24.0
 
 require github.com/google/cel-go v0.22.1
 

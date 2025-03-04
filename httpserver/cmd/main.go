@@ -33,17 +33,15 @@ func healthChecker(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// init svrConfig
-
-	// init serveMux
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", healthChecker)
+	port := "8080"
 
 	// init server
-	svr := httpserver.New(mux, &http.Server{Addr: ":8080"})
+	app := httpserver.New()
+	app.Get("/", healthChecker)
 
 	// add middlewares
-	svr.Use(authMiddleware, logMiddleware)
+	app.Use(authMiddleware, logMiddleware)
 
 	// run
-	log.Fatal(svr.Run())
+	log.Fatal(app.Listen(port))
 }

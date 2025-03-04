@@ -31,6 +31,13 @@ func healthChecker(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
+func wildcardHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	log.Printf("Wildcard handler, id: %s\n", id)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Wildcard"))
+}
+
 func main() {
 	// init svrConfig
 	port := "8080"
@@ -38,9 +45,10 @@ func main() {
 	// init server
 	app := httpserver.New()
 	app.Get("/", healthChecker)
+	app.Get("/users/{id}", wildcardHandler)
 
 	// add middlewares
-	app.Use(authMiddleware, logMiddleware)
+	app.Use(logMiddleware)
 
 	// run
 	log.Fatal(app.Listen(port))

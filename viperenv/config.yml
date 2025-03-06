@@ -1,0 +1,7 @@
+server:
+  port: "8080"
+  mode: "production"
+database:
+  user: "admin"
+  password: "supersecret"
+  host: "db.example.com"

@@ -9,6 +9,7 @@ use (
 	./log_interface
 	./logger_comparison
 	./nopanic
+	./runapplication
 	./sliceexample
 	./syncmapex
 	./viperenv

@@ -5,6 +5,7 @@ use (
 	./elo
 	./environ
 	./err
+	./gozero-demo
 	./httpserver
 	./log_interface
 	./logger_comparison

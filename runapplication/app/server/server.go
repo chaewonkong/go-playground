@@ -20,16 +20,24 @@ type Config struct {
 
 // Server 서버 구조체
 type Server struct {
-	svr *http.Server
+	svr    *http.Server
+	config *Config
 }
 
 // New 서버 생성자
-func New(readConfig func(config any) error) (app.App, error) {
-	cfg := &Config{}
-	if err := readConfig(cfg); err != nil {
-		return nil, err
+func New(cfg *Config) app.App {
+	svr := &http.Server{
+		Addr:    ":" + cfg.Server.Port,
+		Handler: newMux(),
 	}
 
+	return &Server{
+		svr:    svr,
+		config: cfg,
+	}
+}
+
+func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /status", func(w http.ResponseWriter, r *http.Request) {
@@ -46,14 +54,7 @@ func New(readConfig func(config any) error) (app.App, error) {
 		}
 
 	})
-
-	svr := &http.Server{
-		Addr:    ":" + cfg.Server.Port,
-		Handler: mux,
-	}
-	return &Server{
-		svr: svr,
-	}, nil
+	return mux
 }
 
 // Run 서버 실행

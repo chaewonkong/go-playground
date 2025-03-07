@@ -6,5 +6,5 @@ import (
 )
 
 func main() {
-	app.RunApplication("gateway", server.New)
+	app.RunApplication("gateway", &server.Factory{})
 }

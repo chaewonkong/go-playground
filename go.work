@@ -6,6 +6,7 @@ use (
 	./environ
 	./err
 	./gozero-demo
+	./gracefulshutdown
 	./httpserver
 	./log_interface
 	./logger_comparison

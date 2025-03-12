@@ -1,8 +1,8 @@
 package loggercomparison
 
 import (
-	"io"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -13,7 +13,7 @@ import (
 
 func BenchmarkZap(b *testing.B) {
 	cfg := zap.NewProductionConfig()
-	cfg.OutputPaths = []string{"discard"}
+	cfg.OutputPaths = []string{"stdout"}
 	logger, _ := cfg.Build()
 	defer logger.Sync()
 
@@ -24,7 +24,7 @@ func BenchmarkZap(b *testing.B) {
 }
 
 func BenchmarkZeroLog(b *testing.B) {
-	logger := zerolog.New(io.Discard).With().Timestamp().Logger()
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		logger.Info().Str("key", "value").Msg("Hello, world!")
@@ -32,7 +32,7 @@ func BenchmarkZeroLog(b *testing.B) {
 }
 
 func BenchmarkSlog(b *testing.B) {
-	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -43,7 +43,7 @@ func BenchmarkSlog(b *testing.B) {
 func BenchmarkLogrus(b *testing.B) {
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.JSONFormatter{})
-	logger.SetOutput(io.Discard)
+	logger.SetOutput(os.Stdout)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

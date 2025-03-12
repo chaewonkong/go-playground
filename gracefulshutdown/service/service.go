@@ -10,7 +10,7 @@ import (
 
 type Service struct {
 	closeCh          chan struct{}
-	tasks            []Task
+	Tasks            []Task
 	ctx              context.Context
 	unCancellableCtx context.Context
 	cancel           context.CancelFunc
@@ -24,8 +24,8 @@ func (s *Service) Init(ctx context.Context) {
 }
 
 func (s *Service) Run() error {
-	errCh := make(chan error, len(s.tasks))
-	for _, task := range s.tasks {
+	errCh := make(chan error, len(s.Tasks))
+	for _, task := range s.Tasks {
 		s.wg.Add(1)
 		go func(task Task) {
 			defer s.wg.Done()
@@ -60,10 +60,10 @@ func (s *Service) Close(ctx context.Context) {
 	select {
 	case <-s.closeCh:
 		// 모든 작업이 종료되는 것 대기
-		log.Printf("Gracefully shutdown")
+		log.Println("Gracefully shutdown")
 	case <-ctx.Done():
 		// 타임아웃 대기 후 강제 종료
 		close(s.closeCh)
-		log.Printf("Force shutdown")
+		log.Println("Force shutdown")
 	}
 }

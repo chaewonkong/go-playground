@@ -50,6 +50,13 @@
             "mode": "auto",
             "program": "${workspaceFolder}/runapplication/cmd",
             "envFile": "${workspaceFolder}/runapplication/.env"
+        },
+        {
+            "name": "Run Graceful Shutdown",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/gracefulshutdown/cmd"        
         }
     ]
 }

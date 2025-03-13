@@ -53,9 +53,27 @@ func (s *Service) Run() error {
 	return nil
 }
 
+// Close closes the service
+//   - ctx에는 timeout이 설정되어 있음 가정
 func (s *Service) Close(ctx context.Context) {
-	// ctx에는 timeout이 설정되어 있음 가정
-	s.cancel()
+	errCh := make(chan error, len(s.Tasks))
+
+	// task 종료
+	for _, task := range s.Tasks {
+		s.wg.Add(1)
+		go func(task Task) {
+			defer s.wg.Done()
+			if err := task.Stop(ctx); err != nil {
+				errCh <- fmt.Errorf("%s: %w", task.(fmt.Stringer).String(), err)
+			}
+		}(task)
+	}
+
+	s.wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		log.Println(err)
+	}
 
 	select {
 	case <-s.closeCh:

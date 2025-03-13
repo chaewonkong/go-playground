@@ -8,7 +8,9 @@ import (
 
 type Task interface {
 	Run(ctx context.Context, sigTerm <-chan struct{}) error
+	Stop(ctx context.Context) error
 	Cancellable() bool
+	String() string
 }
 
 type TaskImpl struct {
@@ -45,12 +47,21 @@ func (t *TaskImpl) Run(ctx context.Context, sigTerm <-chan struct{}) error {
 		}
 		return nil
 	case <-sigTerm:
-		return fmt.Errorf("force shutdown error, %s", t.name)
+		err := t.svr.Close()
+		return fmt.Errorf("force shutdown error, %s: %w", t.name, err)
 	case err := <-errCh:
 		return err
 	}
 }
 
+func (t *TaskImpl) Stop(ctx context.Context) error {
+	return t.svr.Shutdown(ctx)
+}
+
 func (t *TaskImpl) Cancellable() bool {
 	return t.cancellable
+}
+
+func (t *TaskImpl) String() string {
+	return t.name
 }

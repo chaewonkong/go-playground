@@ -14,6 +14,8 @@ import (
 func BenchmarkZap(b *testing.B) {
 	cfg := zap.NewProductionConfig()
 	cfg.OutputPaths = []string{"stdout"}
+	cfg.Sampling = nil
+
 	logger, _ := cfg.Build()
 	defer logger.Sync()
 

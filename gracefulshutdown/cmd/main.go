@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"gracefulshutdown/service"
 	"log"
 	"net/http"
 	"os"
@@ -15,7 +16,7 @@ import (
 
 func NewDefaultMux() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("OK"))
 	})
 
@@ -32,12 +33,12 @@ type RedisClient struct {
 
 func (rc *RedisClient) Incr(ctx context.Context, key string) *redis.IntCmd {
 	// mock latency
-	time.Sleep(10 * time.Second)
+	time.Sleep(1 * time.Minute)
 	return rc.client.Incr(ctx, key)
 }
 
-func (rc *RedisClient) Decr(ctx context.Context, key string) *redis.IntCmd {
-	return rc.client.Decr(ctx, key)
+func (rc *RedisClient) Get(ctx context.Context, key string) *redis.StringCmd {
+	return rc.client.Get(ctx, key)
 }
 
 func (h *Handler) Incr(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +61,7 @@ func (h *Handler) Incr(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(fmt.Sprintf("Incremented count for %s:%v", key, result)))
 }
 
-func (h *Handler) Decr(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	key := "reqkey"
 
 	log.Printf("Request key %s", key)
@@ -69,7 +70,7 @@ func (h *Handler) Decr(w http.ResponseWriter, r *http.Request) {
 
 	// mock latency
 	// redis with 10 seconds delay
-	result, err := h.client.Decr(ctx, key).Result()
+	result, err := h.client.Get(ctx, key).Result()
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -81,8 +82,9 @@ func (h *Handler) Decr(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	term := make(chan os.Signal, 1)
-	signal.Notify(term, syscall.SIGTERM, os.Interrupt)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
 	client := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 	})
@@ -94,81 +96,48 @@ func main() {
 		client: rc,
 	}
 
-	mux := NewDefaultMux()
-	mux.HandleFunc("/incr", h.Incr) // latency 10 seconds
-	mux.HandleFunc("/decr", h.Decr) // no latency
+	cancellableMux := NewDefaultMux()
+	nonCancellableMux := NewDefaultMux()
+	cancellableMux.HandleFunc("/read", h.Get)     // no latency
+	nonCancellableMux.HandleFunc("/incr", h.Incr) // latency 10 seconds
 
-	svr := &http.Server{
+	cancellableSvr := &http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: cancellableMux,
 	}
+
+	nonCancellableSvr := &http.Server{
+		Addr:    ":8081",
+		Handler: nonCancellableMux,
+	}
+
+	cancellableTask := service.NewTask("cancellable-http-server", true, cancellableSvr)
+	nonCancellableTask := service.NewTask("non-cancellable-http-server", false, nonCancellableSvr)
+
+	svc := &service.Service{
+		Tasks: []service.Task{cancellableTask, nonCancellableTask},
+	}
+
+	ctx := context.Background()
+	svc.Init(ctx)
 
 	go func() {
-		log.Printf("Starting the server on %s", svr.Addr)
-		err := svr.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+		log.Println("Starting the service...")
+		if err := svc.Run(); err != nil {
+			log.Println(err)
 		}
+
 	}()
 
-	<-term
-	// graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	// cancel the service
+	<-c
+	// 10초 이내에 종료되지 않으면 강제 종료
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	if err := svr.Shutdown(ctx); err != nil {
-		log.Printf("graceful shutdown error: %v", err)
-	}
-
-	log.Println("Gracefully shutdown")
+	svc.Close(ctx)
 }
 
-// func main() {
-// 	c := make(chan os.Signal, 1)
-// 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-// 	mux := http.NewServeMux()
-// 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-// 		_, _ = w.Write([]byte("OK"))
-// 	})
-// 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-// 		// simulate a long request
-// 		time.Sleep(10 * time.Minute)
-// 		_, _ = w.Write([]byte("Hello, World!"))
-// 	})
-
-// 	cancellableSvr := &http.Server{
-// 		Addr:    ":8080",
-// 		Handler: mux,
-// 	}
-
-// 	nonCancellableSvr := &http.Server{
-// 		Addr:    ":8081",
-// 		Handler: mux,
-// 	}
-
-// 	cancellableTask := service.NewTask("cancellable-http-server", true, cancellableSvr)
-// 	nonCancellableTask := service.NewTask("non-cancellable-http-server", false, nonCancellableSvr)
-
-// 	svc := &service.Service{
-// 		Tasks: []service.Task{cancellableTask, nonCancellableTask},
-// 	}
-
-// 	ctx := context.Background()
-// 	svc.Init(ctx)
-
-// 	go func() {
-// 		log.Println("Starting the service...")
-// 		if err := svc.Run(); err != nil {
-// 			log.Println(err)
-// 		}
-
-// 	}()
-
-// 	// cancel the service
-// 	<-c
-// 	// 10초 이내에 종료되지 않으면 강제 종료
-// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-// 	defer cancel()
-// 	svc.Close(ctx)
-// }
+// 기대 결과
+// 1. cancellable: 즉시 종료되어야 함 ctx의 cancelFunc 호출.
+// 2. non-cancellable: 10초 이내에 종료되지 않으면 강제 종료.
+//      Graceful Shutdown으로 10초 내에는 작업 종료를 대기.

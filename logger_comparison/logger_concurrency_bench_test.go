@@ -54,7 +54,7 @@ func newZapLogger(isBuffer bool) *zap.Logger {
 
 	var ws zapcore.WriteSyncer = os.Stdout
 	if isBuffer {
-		ws = &zapcore.BufferedWriteSyncer{WS: ws}
+		ws = &zapcore.BufferedWriteSyncer{WS: ws, Size: 256 * 1024}
 	}
 
 	return zap.New(zapcore.NewCore(

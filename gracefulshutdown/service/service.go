@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 )
 
 type Service struct {
@@ -46,19 +47,6 @@ func (s *Service) Run() error {
 		}(task)
 	}
 
-	// // s.wg.Wait()
-	// <-s.closeCh // 종료하라는 신호가 왔다
-	// s.cancel()  // 종료 가능한 context는 종료
-	// for _, task := range s.Tasks {
-	// 	if !task.Cancellable() {
-	// 		go func(task Task) {
-	// 			err := task.Stop(s.unCancellableCtx)
-	// 			if err != nil {
-	// 				errCh <- fmt.Errorf("%s: %w", task.(fmt.Stringer).String(), err)
-	// 			}
-	// 		}(task)
-	// 	}
-	// }
 	wg.Wait()
 	close(errCh)
 	for err := range errCh {
@@ -74,88 +62,54 @@ func (s *Service) Run() error {
 // Close closes the service
 //   - termCtx에는 비관적 종료를 강제하는 timeout이 설정되어 있음 가정
 func (s *Service) Close(termCtx context.Context) {
-	var wg sync.WaitGroup
+	// var wg sync.WaitGroup
 
 	// 종료 가능한 context는 종료
 	s.cancel()
 
 	errCh := make(chan error, len(s.Tasks))
-	doneCh := make(chan struct{}) // 모든 작업이 종료되었는지 확인
+	// doneCh := make(chan struct{}) // 모든 작업이 종료되었는지 확인
 
 	// 종료되지 않은 작업에 대해 강제 종료
-	for _, task := range s.Tasks {
-		if !task.Cancellable() {
-			wg.Add(1)
-			go func(task Task) {
-				defer wg.Done()
-				err := task.GracefulShutdown(s.unCancellableCtx)
-				if err != nil {
-					errCh <- fmt.Errorf("%s: %w", task.(fmt.Stringer).String(), err)
-				}
-			}(task)
-		}
-	}
+	// for _, task := range s.Tasks {
+	// 	if !task.Cancellable() {
+	// 		wg.Add(1)
+	// 		go func(task Task) {
+	// 			defer wg.Done()
+	// 			err := task.GracefulShutdown(termCtx)
 
-	go func() {
-		wg.Wait()
-		close(doneCh)
-		// log.Println("Gracefully shutdown")
-	}()
+	// 			// 비정상 종료 등
+	// 			if err != nil {
+	// 				errCh <- fmt.Errorf("%s: %w", task.String(), err)
+	// 			}
+	// 		}(task)
+	// 	}
+	// }
 
-	select {
-	case <-doneCh:
-		// 정상 종료 완료
-		log.Println("Gracefully shutdown")
-	case <-termCtx.Done():
-		// 강제 종료
-		close(s.closeCh)
-		log.Println("Force shutdown")
-	}
+	// go func() {
+	// 	wg.Wait()
+	// 	close(doneCh)
+	// }()
+
+	// select {
+	// case <-doneCh:
+	// 	// 정상 종료 완료
+	// 	log.Println("gracefully shutdown")
+	// case <-termCtx.Done():
+	// 	// 강제 종료
+	// 	// <-doneCh
+	// 	close(s.closeCh)
+	// 	log.Println("force shutdown")
+	// }
+
+	<-termCtx.Done()
+	close(s.closeCh)
+	log.Println("force shutdown")
+	time.Sleep(1 * time.Second)
 
 	close(errCh)
 
 	for err := range errCh {
 		log.Println(err)
 	}
-
-	// 1. 모든 서비스가 다 종료된 경우
-	// 즉시 return
-	// 2. 서비스가 다 종료되지 않은 경우
-	// 강제 종료 대기
-
-	// 강제 종료의 순간이 왔다
-	// <-termCtx.Done()
-	// close(s.closeCh)
-
-	// for err := range errCh {
-	// 	log.Println(err)
-	// }
-
-	// select {
-	// case <-s.closeCh:
-	// 	errCh := make(chan error, len(s.Tasks))
-
-	// 	// 모든 작업이 종료되는 것 대기
-	// 	s.cancel() // 종료 가능한 context는 종료
-
-	// 	// 종료되지 않은 작업에 대해 강제 종료
-	// 	for _, task := range s.Tasks {
-	// 		if !task.Cancellable() {
-	// 			go func(task Task) {
-	// 				err := task.Stop(s.unCancellableCtx)
-	// 				if err != nil {
-	// 					errCh <- fmt.Errorf("%s: %w", task.(fmt.Stringer).String(), err)
-	// 				}
-	// 			}(task)
-	// 		}
-	// 	}
-	// 	for err := range errCh {
-	// 		log.Println(err)
-	// 	}
-	// 	log.Println("Gracefully shutdown")
-	// case <-termCtx.Done():
-	// 	// 강제 종료
-	// 	close(s.closeCh)
-	// 	log.Println("Force shutdown")
-	// }
 }

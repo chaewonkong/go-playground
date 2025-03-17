@@ -12,16 +12,12 @@ import (
 )
 
 func BenchmarkZap(b *testing.B) {
-	cfg := zap.NewProductionConfig()
-	cfg.OutputPaths = []string{"stdout"}
-	cfg.Sampling = nil
-
-	logger, _ := cfg.Build()
+	logger := newZapLogger(false)
 	defer logger.Sync()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		logger.Info("Hello, world!", zap.String("key", "value"), zap.Time("time", time.Now()))
+		logger.Info("Hello, world!", zap.String("key", "value"))
 	}
 }
 

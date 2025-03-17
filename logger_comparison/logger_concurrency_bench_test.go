@@ -1,9 +1,11 @@
 package loggercomparison
 
 import (
+	"bufio"
 	"io"
 	"log/slog"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -89,6 +91,29 @@ func BenchmarkZapConcurrent(b *testing.B) {
 	})
 }
 
+// var mu sync.Mutex
+// bwr := bufio.NewWriterSize(os.Stdout, 512*1024)
+
+// logger := log.New(io.WriterFunc(func(p []byte) (n int, err error) {
+//     mu.Lock()
+//     defer mu.Unlock()
+//     return bwr.Write(p)
+// }), "", log.LstdFlags)
+
+func BenchmarkZeroLogConcurrentWithBuffer(b *testing.B) {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixNano
+
+	bwr := bufio.NewWriterSize(os.Stdout, 256*1024)
+	logger := zerolog.New(zerolog.SyncWriter(bwr)).With().Timestamp().Logger()
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.Info().Str("key", "value").Msg("concurrent-log")
+		}
+	})
+}
+
 func BenchmarkZeroLogConcurrent(b *testing.B) {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixNano
 
@@ -98,6 +123,48 @@ func BenchmarkZeroLogConcurrent(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			logger.Info().Str("key", "value").Msg("concurrent-log")
+		}
+	})
+}
+
+type syncWriter struct {
+	mu sync.Mutex
+	wr io.Writer
+}
+
+func SyncWriter(w io.Writer) io.Writer {
+	return &syncWriter{
+		wr: w,
+	}
+}
+
+func (s *syncWriter) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.wr.Write(p)
+}
+
+func BenchmarkSlogConcurrentWithBuffer(b *testing.B) {
+	bwr := bufio.NewWriterSize(os.Stdout, 256*1024)
+	swr := SyncWriter(bwr)
+	logger := slog.New(slog.NewJSONHandler(swr, &slog.HandlerOptions{
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			switch a.Key {
+			case slog.TimeKey:
+				return slog.Int64("time", a.Value.Time().UnixNano())
+			case slog.MessageKey:
+				return slog.String("message", a.Value.String())
+			case slog.LevelKey:
+				return slog.String("level", "info")
+			}
+			return a
+		},
+	}))
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.Info("concurrent-log", slog.String("key", "value"))
 		}
 	})
 }
@@ -125,6 +192,29 @@ func BenchmarkSlogConcurrent(b *testing.B) {
 	})
 }
 
+func BenchmarkLogrusConcurrentWithBuffer(b *testing.B) {
+	bwr := bufio.NewWriterSize(os.Stdout, 256*1024)
+	swr := SyncWriter(bwr)
+	logger := logrus.New()
+	logger.SetFormatter(&logrus.JSONFormatter{
+		DisableTimestamp: true,
+		FieldMap: logrus.FieldMap{
+			logrus.FieldKeyMsg:  "message",
+			logrus.FieldKeyTime: "ts",
+		}})
+	logger.SetOutput(swr)
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.WithFields(logrus.Fields{
+				"key":  "value",
+				"time": time.Now().UnixNano(),
+			}).Info("concurrent-log")
+		}
+	})
+}
+
 func BenchmarkLogrusConcurrent(b *testing.B) {
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.JSONFormatter{
@@ -133,7 +223,7 @@ func BenchmarkLogrusConcurrent(b *testing.B) {
 			logrus.FieldKeyMsg:  "message",
 			logrus.FieldKeyTime: "ts",
 		}})
-	logger.SetOutput(io.Discard)
+	logger.SetOutput(os.Stdout)
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

@@ -58,6 +58,26 @@
             "mode": "auto",
             "program": "${workspaceFolder}/gracefulshutdown/cmd",
             "console": "integratedTerminal"  
+        },
+        {
+            "name": "Run ctx logger",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/ctxlog/cmd/${input:dirname}",
         }
-    ]
+    ],
+    "inputs": [
+        {
+            "id": "dirname",
+            "type": "pickString",
+            "description": "Choose a directory under ctxlog/cmd to run",
+            "options": [
+              "zerolog",
+              "zap",
+              "slog"
+            ],
+            "default": "zerolog"
+          }
+      ]
 }

@@ -29,6 +29,25 @@ func NewServer(port string, mux *http.ServeMux) *http.Server {
 	}
 }
 
+type Server struct {
+	*http.Server
+}
+
+func (s *Server) Run() error {
+	if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) GracefulStop(ctx context.Context) error {
+	return s.Shutdown(ctx)
+}
+
+func (s *Server) Stop() error {
+	return s.Close()
+}
+
 func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -44,9 +63,9 @@ func main() {
 	cancellableSvr := NewServer("8080", cancellableMux)
 	nonCancellableSvr := NewServer("8081", nonCancellableMux)
 
-	cancellableTask := service.NewTask("cancellable-http-server", true, cancellableSvr)
+	cancellableTask := service.NewTask("cancellable-http-server", true, &Server{cancellableSvr})
 	_ = cancellableTask
-	nonCancellableTask := service.NewTask("non-cancellable-http-server", false, nonCancellableSvr)
+	nonCancellableTask := service.NewTask("non-cancellable-http-server", false, &Server{nonCancellableSvr})
 
 	// Create a new service
 

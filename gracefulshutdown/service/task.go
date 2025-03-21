@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"net/http"
 )
 
 type Task interface {
@@ -17,14 +16,16 @@ type TaskImpl struct {
 	name        string
 	cancellable bool
 	ctx         context.Context
-	svr         *http.Server
+	app         App
+
+	shutdownFunc func(ctx context.Context) error
 }
 
-func NewTask(name string, cancellable bool, svr *http.Server) Task {
+func NewTask(name string, cancellable bool, app App) Task {
 	return &TaskImpl{
 		name:        name,
 		cancellable: cancellable,
-		svr:         svr,
+		app:         app,
 	}
 }
 
@@ -36,21 +37,21 @@ func (t *TaskImpl) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	// Run server
 	go func() {
-		if err := t.svr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := t.app.Run(); err != nil {
 			errCh <- fmt.Errorf("server error, %s: %w", t.name, err)
 		}
 	}()
 
 	select {
 	case <-t.ctx.Done(): // cancellable이고 cancel된 경우 서버 종료
-		return t.svr.Shutdown(t.ctx)
+		return t.app.Stop()
 	case err := <-errCh: // 에러 발생인 경우 에러 반환하고 서버 종료
 		return err
 	}
 }
 
 func (t *TaskImpl) GracefulShutdown(ctx context.Context) error {
-	return t.svr.Shutdown(ctx)
+	return t.app.GracefulStop(ctx)
 }
 
 func (t *TaskImpl) Cancellable() bool {
@@ -59,4 +60,10 @@ func (t *TaskImpl) Cancellable() bool {
 
 func (t *TaskImpl) String() string {
 	return t.name
+}
+
+type App interface {
+	Run() error
+	Stop() error
+	GracefulStop(ctx context.Context) error
 }

@@ -2,64 +2,73 @@ package main
 
 import (
 	"net/http"
+	"os"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-func main() {
-	e := echo.New()
+type Service struct{}
 
-	loggerMiddleware := func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			req := c.Request()
-			res := c.Response()
+func (s *Service) Hello(c echo.Context, name string) string {
+	ctx := c.Request().Context()
 
-			// Request ID from Echo's built-in header
-			requestID := res.Header().Get(echo.HeaderXRequestID)
+	// zerolog.Ctx(ctx)는 ctx에 저장된 *zerolog.Logger를 반환함.
+	// {"level":"info","request_id":"706e54a9-6aca-4032-89ff-e39af38eeaba","version":"v1.0.1","name":"leon","time":"2025-03-24T18:44:39+09:00","message":"Hello"}
+	zerolog.Ctx(ctx).Info().Str("name", name).Msg("Hello")
 
-			// 새 context와 logger 생성
-			logger := log.With().
-				Str("request_id", requestID).
-				Logger()
+	return "Hello, " + name
+}
 
-			ctx := logger.WithContext(req.Context())
+type Handler struct {
+	svc *Service
+}
 
-			// context 교체
-			req = req.WithContext(ctx)
-			c.SetRequest(req)
+func (h *Handler) Hello(c echo.Context) error {
+	name := c.Param("name")
 
-			return next(c)
-		}
+	return c.String(http.StatusOK, h.svc.Hello(c, name))
+}
+
+// LoggerMiddleware requestID, version을 로깅 context에 추가하는 미들웨어
+func LoggerMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		req := c.Request()
+		reqID := uuid.New().String()
+
+		// zerolog로 context에 필드 추가
+		logger := log.
+			Output(os.Stderr). // stderr로 로그 출력
+			With().
+			Str("request_id", reqID).
+			Str("version", "v1.0.1").
+			Logger()
+
+		// returns context.WithValue(ctx, ctxKey{}, &logger)
+		ctx := logger.WithContext(req.Context())
+
+		c.SetRequest(req.WithContext(ctx))
+
+		return next(c)
 	}
+}
 
-	e.Use(middleware.RequestID(), loggerMiddleware)
+func NewServer(h *Handler) *echo.Echo {
+	e := echo.New()
+	e.GET("/hello/:name", h.Hello)
 
-	e.GET("/", func(c echo.Context) error {
-		ctx := c.Request().Context()
-		logger := zerolog.Ctx(ctx)
+	e.Use(LoggerMiddleware)
 
-		logger.Info().Msg("hello, world") //{"level":"info","request_id":"AHNqjLRPcHkRQQJjaGVxFgTYcXxEuKKw","time":"2025-03-21T15:01:05+09:00","message":"hello, world"}
-		logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
-			return c.Bool("production", false).Str("foo", "bar")
-		})
+	return e
+}
 
-		logger.Info().Msg("bye, world")
-		return c.String(http.StatusOK, "hello, world")
-	})
+func main() {
+	// logger setting
 
-	e.GET("/updated", func(c echo.Context) error {
-		ctx := c.Request().Context()
-
-		logger := zerolog.Ctx(ctx)
-
-		// log fields from ctx
-		logger.Info().Msg("hello, world")
-
-		return c.String(http.StatusOK, "updated")
-	})
-
-	e.Logger.Fatal(e.Start(":1323"))
+	svc := &Service{}
+	h := &Handler{svc: svc}
+	e := NewServer(h)
+	e.Logger.Fatal(e.Start(":8080"))
 }

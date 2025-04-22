@@ -12,3 +12,27 @@ This repository contains:
 - Best practices and idiomatic Go code.
 
 Whether you're learning Go, refreshing your skills, or exploring advanced concepts, this repository is a great resource to get started.
+
+
+## 논점 1
+빈 슬라이스 생성할 때 nil initialization을 해야 하는가?
+
+<table>
+<thead><tr><th>Bad</th><th>Good</th></tr></thead>
+<tbody>
+<tr><td>
+
+```go
+
+var s []string
+
+
+```
+</td><td>
+
+```go
+
+s := []string{}
+```
+</td></tr>
+</tbody></table>
